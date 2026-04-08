@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+// server/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums based on the specification
+enum Role {
+  product_owner
+  admin
+  user
+}
+
+enum PaymentStatus {
+  pending
+  success
+  failed
+}
+
+// Data Models
+model User {
+  id              String         @id @default(uuid())
+  name            String
+  email           String         @unique
+  role            Role
+  password        String
+  organization_id String
+  image_quota     Int            @default(5)
+  created_at      DateTime       @default(now())
+
+  // Relations
+  organization    Organisation   @relation("UserOrganisation", fields: [organization_id], references: [id])
+  managed_org     Organisation?  @relation("OrgAdmin") // Reverse relation for Organisation.admin_id
+  images          Image[]        @relation("UploadedImages")
+  payments        Payment[]      @relation("UserPayments")
+  notifications   Notification[] @relation("SenderNotifications")
+}
+
+model Organisation {
+  id              String         @id @default(uuid())
+  name            String
+  logo_url        String?        
+  address         String?
+  phone           String?
+  admin_id        String         @unique 
+  created_at      DateTime       @default(now())
+
+  // Relations
+  admin           User           @relation("OrgAdmin", fields: [admin_id], references: [id])
+  users           User[]         @relation("UserOrganisation")
+  images          Image[]        @relation("OrgImages")
+  payments        Payment[]      @relation("OrgPayments")
+  notifications   Notification[] @relation("OrgNotifications")
+}
+
+model Image {
+  id              String         @id @default(uuid())
+  url             String
+  uploaded_by     String
+  organization_id String
+  tags            String[]       // PostgreSQL supports scalar arrays for the UUIDs
+  created_at      DateTime       @default(now())
+
+  // Relations
+  user            User           @relation("UploadedImages", fields: [uploaded_by], references: [id])
+  organization    Organisation   @relation("OrgImages", fields: [organization_id], references: [id])
+  notifications   Notification[] @relation("ImageNotifications")
+}
+
+model Payment {
+  id              String         @id @default(uuid())
+  user_id         String
+  organization_id String
+  amount          Int
+  slots_purchased Int
+  transaction_id  String         @unique // Ensures Razorpay transaction IDs aren't duplicated
+  status          PaymentStatus
+  created_at      DateTime       @default(now())
+
+  // Relations
+  user            User           @relation("UserPayments", fields: [user_id], references: [id])
+  organization    Organisation   @relation("OrgPayments", fields: [organization_id], references: [id])
+}
+
+model Notification {
+  id              String         @id @default(uuid())
+  organization_id String
+  sender_id       String
+  receiver_ids    String[]       // PostgreSQL array to store multiple tagged user IDs
+  image_id        String
+  message         String
+  created_at      DateTime       @default(now())
+
+  // Relations
+  organization    Organisation   @relation("OrgNotifications", fields: [organization_id], references: [id])
+  sender          User           @relation("SenderNotifications", fields: [sender_id], references: [id])
+  image           Image          @relation("ImageNotifications", fields: [image_id], references: [id])
+}
