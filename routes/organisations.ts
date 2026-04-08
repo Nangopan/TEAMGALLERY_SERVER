@@ -16,7 +16,7 @@ router.delete('/:id', verifyToken, async (req: AuthRequest, res) => {
     }
 
     await prisma.organisation.delete({
-      where: { id: req.params.id }
+      where: { id: req.params.id as string}
     });
 
     res.status(200).json({ message: "Organisation deleted successfully" });
@@ -36,7 +36,7 @@ router.put('/:id', verifyToken, async (req: AuthRequest, res) => {
     const { name } = req.body; // In a full app, you would include address, phone, etc.
 
     const updatedOrg = await prisma.organisation.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string},
       data: { name }
     });
 

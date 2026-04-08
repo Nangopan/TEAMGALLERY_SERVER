@@ -4,6 +4,9 @@ import cors from 'cors';
 import authRoutes from './routes/auth';
 import orgRoutes from './routes/organisations';
 import userRoutes from './routes/users';
+import imageRoutes from './routes/images';
+import paymentRoutes from './routes/payments';
+
 
 const app = express();
 
@@ -19,6 +22,8 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/organisations', orgRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/images', imageRoutes);
+app.use('/api/payments', paymentRoutes);
 console.log("✅ Users route registered");
 
 const PORT = process.env.PORT || 4000;
