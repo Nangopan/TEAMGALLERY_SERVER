@@ -8,4 +8,7 @@ export default defineConfig({
   datasource: {
     url: env("DATABASE_URL"),     // This replaces the line we deleted
   },
+  migrations: {
+    seed: 'tsx ./prisma/seed.ts', // 🚨 Add this line
+  },
 });

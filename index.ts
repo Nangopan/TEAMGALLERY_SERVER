@@ -6,6 +6,7 @@ import orgRoutes from './routes/organisations';
 import userRoutes from './routes/users';
 import imageRoutes from './routes/images';
 import paymentRoutes from './routes/payments';
+import nocache from 'nocache';
 
 
 const app = express();
@@ -17,6 +18,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(nocache());
 
 // Register the Authentication Route
 app.use('/api/auth', authRoutes);

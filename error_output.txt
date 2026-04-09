@@ -1,0 +1,22 @@
+
+Invalid `tx.organisation.create()` invocation in
+C:\Users\Admin\Desktop\TeamGallery\server\test_transaction_2.ts:7:50
+
+  4 async function main() {
+  5     try {
+  6         await prisma.$transaction(async (tx) => {
+→ 7             const newOrg = await tx.organisation.create({
+                  data: {
+                    name: "Test Org",
+                    address: "123 Test",
+                    phone: "123",
+                    logo_url: null,
+                +   admin: {
+                +     create: UserCreateWithoutManaged_orgInput | UserUncheckedCreateWithoutManaged_orgInput,
+                +     connectOrCreate: UserCreateOrConnectWithoutManaged_orgInput,
+                +     connect: UserWhereUniqueInput
+                +   }
+                  }
+                })
+
+Argument `admin` is missing.

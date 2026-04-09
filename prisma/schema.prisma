@@ -51,11 +51,11 @@ model Organisation {
   logo_url        String?        
   address         String?
   phone           String?
-  admin_id        String         @unique 
+  admin_id        String?        @unique 
   created_at      DateTime       @default(now())
 
   // Relations
-  admin           User           @relation("OrgAdmin", fields: [admin_id], references: [id])
+  admin           User?           @relation("OrgAdmin", fields: [admin_id], references: [id])
   users           User[]         @relation("UserOrganisation")
   images          Image[]        @relation("OrgImages")
   payments        Payment[]      @relation("OrgPayments")
