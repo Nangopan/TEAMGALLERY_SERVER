@@ -61,31 +61,31 @@ router.post('/', verifyToken, async (req: AuthRequest, res) => {
 
     const { name, address, phone, logo_url, adminName, adminEmail } = req.body;
 
-    // Check if admin email is taken
+    // 🟢 1. Check if organization name is already taken
+    const existingOrgName = await prisma.organisation.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } } // Case-insensitive check
+    });
+    if (existingOrgName) {
+      return res.status(400).json({ error: "An organization with this name already exists." });
+    }
+
+    // 2. Check if admin email is taken
     const existingUser = await prisma.user.findUnique({ where: { email: adminEmail } });
     if (existingUser) return res.status(400).json({ error: "Admin email already in use." });
 
+    const generateSecurePassword = () => {
+      const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      const specialChars = "!@#$%^&*()_+";
+      let password = Array.from(crypto.randomBytes(10))
+        .map((byte) => chars[byte % chars.length])
+        .join("");
+      const randomSpecial = specialChars[crypto.randomInt(0, specialChars.length)];
+      return password + randomSpecial;
+    };
 
-    // Replace your old tempPassword logic with this:
-const generateSecurePassword = () => {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  const specialChars = "!@#$%^&*()_+";
-  
-  // Generate 10 random alphanumeric chars
-  let password = Array.from(crypto.randomBytes(10))
-    .map((byte) => chars[byte % chars.length])
-    .join("");
-    
-  // Inject at least one special character
-  const randomSpecial = specialChars[crypto.randomInt(0, specialChars.length)];
-  return password + randomSpecial; // Total 11 chars, meeting all criteria
-};
+    const tempPassword = generateSecurePassword();
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-const tempPassword = generateSecurePassword();
-const hashedPassword = await bcrypt.hash(tempPassword, 10);
-    
-
-    // Transaction: Create Org -> Create Admin -> Link Admin to Org
     const result = await prisma.$transaction(async (tx) => {
       const newOrg = await tx.organisation.create({
         data: { name, address, phone, logo_url }
@@ -157,29 +157,30 @@ router.get('/:id', verifyToken, async (req: AuthRequest, res) => {
 // 5. PUT: Edit Organization Details
 router.put('/:id', verifyToken, async (req: AuthRequest, res) => {
   try {
-    // SECURITY: Only the Product Owner can edit organizations
-    if (req.user.role !== 'product_owner') {
-      return res.status(403).json({ error: "Unauthorized" });
-    }
+    if (req.user.role !== 'product_owner') return res.status(403).json({ error: "Unauthorized" });
 
     const { id } = req.params;
     const { name, address, phone, logo_url } = req.body;
 
-    // Check if the organization exists
-    const existingOrg = await prisma.organisation.findUnique({ where: { id } });
-    if (!existingOrg) {
-      return res.status(404).json({ error: "Organization not found" });
+    // 🟢 1. Check if the NEW name is taken by ANOTHER organization
+    if (name) {
+      const nameConflict = await prisma.organisation.findFirst({
+        where: { 
+          name: { equals: name, mode: 'insensitive' },
+          id: { not: id } // Exclude current organization
+        }
+      });
+      if (nameConflict) {
+        return res.status(400).json({ error: "Another organization is already using this name." });
+      }
     }
 
-    // Update the organization
+    const existingOrg = await prisma.organisation.findUnique({ where: { id } });
+    if (!existingOrg) return res.status(404).json({ error: "Organization not found" });
+
     const updatedOrg = await prisma.organisation.update({
       where: { id },
-      data: { 
-        name, 
-        address, 
-        phone, 
-        logo_url 
-      }
+      data: { name, address, phone, logo_url }
     });
 
     res.json({ message: "Organization updated successfully", org: updatedOrg });

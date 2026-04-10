@@ -35,6 +35,7 @@ model User {
   password        String
   organization_id String
   image_quota     Int            @default(5)
+  pushSubscription Json?
   created_at      DateTime       @default(now())
 
   // Relations

@@ -5,11 +5,19 @@ import { verifyToken, AuthRequest } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-// 1. GET: Fetch all users in the Admin's organization
+// server/routes/users.ts
+
+// 1. GET: Fetch all users in the Admin's organization (Filtered to exclude higher roles)
 router.get('/', verifyToken, async (req: AuthRequest, res) => {
   try {
     const users = await prisma.user.findMany({
-      where: { organization_id: req.user.organization_id },
+      where: { 
+        organization_id: req.user.organization_id,
+        // 🟢 FILTER: Exclude admins and product owners from the team list
+        role: {
+          notIn: ['admin', 'product_owner']
+        }
+      },
       // SECURITY: Never send passwords back to the frontend
       select: { 
         id: true, 
@@ -26,6 +34,8 @@ router.get('/', verifyToken, async (req: AuthRequest, res) => {
     res.status(500).json({ error: "Failed to fetch users" });
   }
 });
+
+
 
 // 2. POST: Create a new user
 router.post('/', verifyToken, async (req: AuthRequest, res) => {
@@ -129,6 +139,63 @@ router.delete('/:id', verifyToken, async (req: AuthRequest, res) => {
   } catch (error) {
     console.error("Delete User Error:", error);
     res.status(500).json({ error: "Failed to delete user. They may have dependent records." });
+  }
+});
+
+// PushSubscription
+// server/routes/users.ts
+
+router.post('/subscribe', verifyToken, async (req: AuthRequest, res) => {
+  try {
+    const subscription = req.body;
+
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({ error: "Invalid subscription data." });
+    }
+
+    // Save the subscription JSON to the user's profile
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        pushSubscription: subscription 
+      }
+    });
+
+    res.status(200).json({ message: "Push subscription registered." });
+  } catch (error) {
+    console.error("Subscription Error:", error);
+    res.status(500).json({ error: "Failed to save subscription." });
+  }
+});
+
+// server/routes/users.ts
+
+router.put('/change-password', verifyToken, async (req: AuthRequest, res) => {
+  try {
+    const { currentEmail, currentPassword, newPassword } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+
+    // 🟢 Use case-insensitive comparison for email
+    if (!user || user.email.toLowerCase() !== currentEmail.toLowerCase()) {
+      return res.status(400).json({ error: "Email verification failed. This does not match our records." });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "The current password you entered is incorrect." });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { password: hashedNewPassword }
+    });
+
+    res.json({ message: "Password updated successfully." });
+  } catch (error) {
+    console.error("Change Password Error:", error);
+    res.status(500).json({ error: "An internal error occurred." });
   }
 });
 

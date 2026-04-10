@@ -37,9 +37,10 @@
     "nocache": "^4.0.0",
     "pg": "^8.20.0",
     "prisma": "^7.6.0",
-    "razorpay": "^2.9.6"
+    "razorpay": "^2.9.6",
+    "web-push": "^3.6.7"
   },
   "prisma": {
-  "seed": "ts-node prisma/seed.ts"
-}
+    "seed": "ts-node prisma/seed.ts"
+  }
 }
