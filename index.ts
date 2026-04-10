@@ -6,6 +6,7 @@ import orgRoutes from './routes/organisations';
 import userRoutes from './routes/users';
 import imageRoutes from './routes/images';
 import paymentRoutes from './routes/payments';
+import notificationRoutes from "./routes/notifications"
 import nocache from 'nocache';
 
 
@@ -26,6 +27,7 @@ app.use('/api/organisations', orgRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/notifications', notificationRoutes);
 console.log("✅ Users route registered");
 
 const PORT = process.env.PORT || 4000;

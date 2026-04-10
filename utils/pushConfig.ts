@@ -1,5 +1,5 @@
 
-import webpush from 'web-push';
+const webpush = require('web-push');
 
 webpush.setVapidDetails(
   'mailto:nangopan889@example.com', // Replace with your real email

@@ -171,17 +171,19 @@ router.get('/members', verifyToken, async (req: AuthRequest, res) => {
   }
 });
 
+
 // POST: Create image records and send notifications
 router.post('/', verifyToken, async (req: AuthRequest, res) => {
   try {
     const { uploadedUrls, taggedUserIds } = req.body;
     const userId = req.user.id;
     const orgId = req.user.organization_id;
-    const senderName = req.user.name;
+    
+    // 🟢 FIX 1: Add fallback for senderName to prevent "undefined" in messages
+    const senderName = req.user?.name || "A team member";
 
     // 1. Transaction Logic
     const result = await prisma.$transaction(async (tx) => {
-       // 🟢 FIX: Actually create the image records
        const imageRecords = await Promise.all(
          uploadedUrls.map((url: string) =>
            tx.image.create({
@@ -195,7 +197,6 @@ router.post('/', verifyToken, async (req: AuthRequest, res) => {
          )
        );
 
-       // 🟢 FIX: Create In-App Notifications for the history bell
        let recipientIds: string[] = [];
        if (taggedUserIds && taggedUserIds.length > 0) {
          recipientIds = taggedUserIds;
@@ -212,7 +213,8 @@ router.post('/', verifyToken, async (req: AuthRequest, res) => {
            data: recipientIds.map(recId => ({
              organization_id: orgId,
              sender_id: userId,
-             receiver_id: recId,
+             // 🟢 FIX 2: Changed receiver_id to receiver_ids and wrapped recId in an array
+             receiver_ids: [recId], 
              message: taggedUserIds?.length > 0 
                ? `${senderName} tagged you in a new photo!` 
                : `${senderName} added new photos to the vault.`,
@@ -224,9 +226,8 @@ router.post('/', verifyToken, async (req: AuthRequest, res) => {
        return imageRecords;
     });
 
-    // 2. 🟢 PUSH NOTIFICATION DISPATCHER
+    // 2. 📡 PUSH NOTIFICATION DISPATCHER (logic remains unchanged)
     let recipients = [];
-
     if (taggedUserIds && taggedUserIds.length > 0) {
       recipients = await prisma.user.findMany({
         where: { id: { in: taggedUserIds }, organization_id: orgId },
@@ -259,6 +260,5 @@ router.post('/', verifyToken, async (req: AuthRequest, res) => {
     res.status(500).json({ error: "Upload succeeded, but notifications may have failed." });
   }
 });
-
 
 export default router;
