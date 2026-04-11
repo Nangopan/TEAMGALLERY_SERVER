@@ -72,6 +72,49 @@ router.post('/', verifyToken, async (req: AuthRequest, res) => {
   }
 });
 
+
+router.put('/change-password', verifyToken, async (req: AuthRequest, res) => {
+  try {
+    // 🟢 Trim the inputs to prevent "invisible space" errors
+    console.log("I got into change-password api")
+    const currentEmail = req.body.currentEmail?.trim();
+    const currentPassword = req.body.currentPassword;
+    const newPassword = req.body.newPassword;
+
+    // 1. Find user by ID (The most secure way)
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+
+    // Debugging: If you still get errors, check your terminal for these values
+    console.log("DB User Email:", user?.email);
+    console.log("Input Email:", currentEmail);
+
+    // 2. Verify user exists and email matches
+    if (!user || user.email.toLowerCase() !== currentEmail.toLowerCase()) {
+      return res.status(400).json({ 
+        error: "Email verification failed. The email provided does not match the account holder." 
+      });
+    }
+
+    // 3. Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "The current password you entered is incorrect." });
+    }
+
+    // 4. Update to new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { password: hashedNewPassword }
+    });
+
+    res.json({ message: "Password updated successfully." });
+  } catch (error) {
+    console.error("Change Password Error:", error);
+    res.status(500).json({ error: "An internal error occurred." });
+  }
+});
+
 // 3. PUT: Edit an existing user
 router.put('/:id', verifyToken, async (req: AuthRequest, res) => {
   try {
@@ -170,33 +213,5 @@ router.post('/subscribe', verifyToken, async (req: AuthRequest, res) => {
 
 // server/routes/users.ts
 
-router.put('/change-password', verifyToken, async (req: AuthRequest, res) => {
-  try {
-    const { currentEmail, currentPassword, newPassword } = req.body;
-
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-
-    // 🟢 Use case-insensitive comparison for email
-    if (!user || user.email.toLowerCase() !== currentEmail.toLowerCase()) {
-      return res.status(400).json({ error: "Email verification failed. This does not match our records." });
-    }
-
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: "The current password you entered is incorrect." });
-    }
-
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({
-      where: { id: req.user.id },
-      data: { password: hashedNewPassword }
-    });
-
-    res.json({ message: "Password updated successfully." });
-  } catch (error) {
-    console.error("Change Password Error:", error);
-    res.status(500).json({ error: "An internal error occurred." });
-  }
-});
 
 export default router;

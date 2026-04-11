@@ -82,23 +82,22 @@ router.post('/presign', verifyToken, async (req: AuthRequest, res) => {
 // GET: Fetch gallery images
 router.get('/', verifyToken, async (req: AuthRequest, res) => {
   try {
-    const { tag } = req.query;
+    const { tag, uploaderId } = req.query; // 🟢 Added uploaderId from query
 
-    // 1. Fetch ALL images for the organization gallery (Team Photos)
+    // 1. Fetch images with optional filters
     const allImages = await prisma.image.findMany({
       where: { 
         organization_id: req.user.organization_id,
-        ...(tag ? { tags: { has: tag as string } } : {})
+        ...(tag ? { tags: { has: tag as string } } : {}),
+        // 🟢 If uploaderId is provided, filter by that user
+        ...(uploaderId ? { uploaded_by: uploaderId as string } : {})
       },
       orderBy: { created_at: 'desc' },
       include: { user: { select: { name: true } } } 
     });
 
-    // 2. 🟢 THE FIX: Count ONLY the images uploaded by THIS specific user for quota
     const personalUploadCount = await prisma.image.count({
-      where: { 
-        uploaded_by: req.user.id 
-      }
+      where: { uploaded_by: req.user.id }
     });
 
     const currentUser = await prisma.user.findUnique({
@@ -106,52 +105,14 @@ router.get('/', verifyToken, async (req: AuthRequest, res) => {
       select: { image_quota: true }
     });
 
-    // 3. Return 'used' as the personal count, but still send 'images' for the gallery
     res.json({ 
       images: allImages, 
       quota: currentUser?.image_quota || 5, 
-      used: personalUploadCount // This is now dynamic and accurate per user
+      used: personalUploadCount 
     });
   } catch (error) {
     console.error("Gallery Fetch Error:", error);
     res.status(500).json({ error: "Failed to fetch gallery" });
-  }
-});
-
-// DELETE: Remove image from S3 and Database
-router.delete('/:id', verifyToken, async (req: AuthRequest, res) => {
-  try {
-    const { id } = req.params;
-
-    // 1. Find the image to get the S3 Key
-    const image = await prisma.image.findUnique({
-      where: { id: id as string }
-    });
-
-    if (!image || image.uploaded_by !== req.user.id) {
-      return res.status(404).json({ error: "Image not found or unauthorized" });
-    }
-
-    // 2. Extract S3 Key from URL
-    // URL looks like: https://bucket.s3.region.amazonaws.com/orgId/filename
-    const fileKey = image.url.split('.com/')[1];
-
-    // 3. Delete from AWS S3
-    const deleteParams = {
-      Bucket: process.env.AWS_S3_BUCKET_NAME,
-      Key: fileKey,
-    };
-    await s3Client.send(new DeleteObjectCommand(deleteParams));
-
-    // 4. Delete from Database
-    await prisma.image.delete({
-      where: { id: id as string }
-    });
-
-    res.status(200).json({ message: "Image permanently deleted" });
-  } catch (error) {
-    console.error("Delete Error:", error);
-    res.status(500).json({ error: "Failed to delete image" });
   }
 });
 
@@ -161,16 +122,25 @@ router.get('/members', verifyToken, async (req: AuthRequest, res) => {
     const users = await prisma.user.findMany({
       where: { 
         organization_id: req.user.organization_id,
-        id: { not: req.user.id } // Don't tag yourself
+        // 🟢 FIX: Only fetch accounts with the 'user' role 
+        // since Admins and POs don't upload images.
+        role: 'user' 
       },
-      select: { id: true, name: true, email: true }
+      select: { 
+        id: true, 
+        name: true, 
+        email: true 
+      },
+      orderBy: {
+        name: 'asc' // Optional: alphabetical order makes the dropdown easier to use
+      }
     });
     res.json(users);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch members" });
+    console.error("Fetch members error:", error);
+    res.status(500).json({ error: "Failed to fetch team members" });
   }
 });
-
 
 // POST: Create image records and send notifications
 router.post('/', verifyToken, async (req: AuthRequest, res) => {
@@ -260,5 +230,38 @@ router.post('/', verifyToken, async (req: AuthRequest, res) => {
     res.status(500).json({ error: "Upload succeeded, but notifications may have failed." });
   }
 });
+
+// DELETE: Remove image from S3 and Database
+router.delete('/:id', verifyToken, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    const image = await prisma.image.findUnique({ where: { id } });
+    if (!image) return res.status(404).json({ error: "Image not found" });
+
+    // 🟢 STEP A: Delete all notifications associated with this image first
+    // This removes the "block" preventing the image deletion
+    await prisma.notification.deleteMany({
+      where: { image_id: id }
+    });
+
+    // 🟢 STEP B: S3 Deletion (Logic remains same)
+    const fileKey = image.url.split('.com/')[1];
+    await s3Client.send(new DeleteObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: fileKey,
+    }));
+
+    // 🟢 STEP C: Now delete the image itself
+    await prisma.image.delete({ where: { id } });
+
+    res.status(200).json({ message: "Image and related notifications deleted" });
+  } catch (error) {
+    console.error("Full Delete Error:", error);
+    res.status(500).json({ error: "Failed to delete image" });
+  }
+});
+
+
 
 export default router;
