@@ -11,17 +11,19 @@ import nocache from 'nocache';
 
 
 const app = express();
-
-// CRITICAL: Allow your Next.js frontend to talk to this backend
 app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true
+  origin: [
+    'http://localhost:3000',         
+    'https://your-app.vercel.app'    
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
-
 app.use(express.json());
 app.use(nocache());
 
-// Register the Authentication Route
+
 app.use('/api/auth', authRoutes);
 app.use('/api/organisations', orgRoutes);
 app.use('/api/users', userRoutes);
