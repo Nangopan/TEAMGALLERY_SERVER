@@ -220,7 +220,7 @@ router.post('/', verifyToken, async (req: AuthRequest, res) => {
     recipients.forEach((u: any) => {
       if (u.pushSubscription) {
         webpush.sendNotification(u.pushSubscription, payload)
-          .catch(err => console.error("Push delivery failed:", err));
+          .catch((err:any )=> console.error("Push delivery failed:", err));
       }
     });
 
@@ -234,7 +234,7 @@ router.post('/', verifyToken, async (req: AuthRequest, res) => {
 // DELETE: Remove image from S3 and Database
 router.delete('/:id', verifyToken, async (req: AuthRequest, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const image = await prisma.image.findUnique({ where: { id } });
     if (!image) return res.status(404).json({ error: "Image not found" });

@@ -1,32 +1,66 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg'; // 🟢 Added adapter
+import pg from 'pg'; // 🟢 Added pg
 import bcrypt from 'bcryptjs';
 import * as dotenv from 'dotenv';
 
-// 🚨 CRITICAL: Load the .env variables before initializing Prisma
+// Load the .env variables
 dotenv.config();
 
-const prisma = new PrismaClient();
+// 🟢 Initialize Prisma 7 with the adapter
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not set in .env");
+}
+
+const pool = new pg.Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  const poEmail = 'product_owner@gmail.com';
+
+  const existingPO = await prisma.user.findUnique({
+    where: { email: poEmail },
+  });
+
+  if (existingPO) {
+    console.log('⚡ Product Owner already exists. Skipping seed.');
+    return;
+  }
+
+  console.log('🌱 Seeding database...');
+
+  const systemOrg = await prisma.organisation.create({
+    data: {
+      name: 'TeamGallery Administration',
+      address: 'System Cloud',
+    },
+  });
+
   const hashedPassword = await bcrypt.hash('test@1234', 10);
 
   const productOwner = await prisma.user.create({
     data: {
       name: 'System Admin',
-      email: 'po@teamgallery.com', // Your login email
+      email: poEmail,
       password: hashedPassword,
-      role: 'product_owner', // Must match your backend check exactly
-      // Since this is the top-level PO, they usually don't belong to an org
-      organization_id: null, 
+      role: 'product_owner',
+      organization_id: systemOrg.id, 
     },
   });
 
-  console.log('✅ Product Owner created:', productOwner.email);
+  await prisma.organisation.update({
+    where: { id: systemOrg.id },
+    data: { admin_id: productOwner.id },
+  });
+
+  console.log('✅ Product Owner and System Organization created successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Seeding failed:', e);
     process.exit(1);
   })
   .finally(async () => {

@@ -122,7 +122,7 @@ router.put('/:id', verifyToken, async (req: AuthRequest, res) => {
       return res.status(403).json({ error: "Unauthorized." });
     }
 
-    const { id } = req.params;
+    const  id  = req.params.id as string;
     const { name, email, tempPassword } = req.body;
 
     // SECURITY: Ensure the target user actually belongs to this Admin's org
@@ -158,7 +158,7 @@ router.delete('/:id', verifyToken, async (req: AuthRequest, res) => {
       return res.status(403).json({ error: "Unauthorized." });
     }
 
-    const { id } = req.params;
+    const  id  = req.params.is as string;
 
     // SECURITY: Prevent the Admin from deleting their own account
     if (id === req.user.id) {

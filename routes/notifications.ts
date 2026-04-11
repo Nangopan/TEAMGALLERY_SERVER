@@ -53,7 +53,7 @@ router.get('/', verifyToken, async (req: AuthRequest, res) => {
 router.delete('/:id', verifyToken, async (req: AuthRequest, res) => {
   try {
     const notification = await prisma.notification.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id as string}
     });
 
     // Verify current user is in the receiver_ids array
@@ -62,7 +62,7 @@ router.delete('/:id', verifyToken, async (req: AuthRequest, res) => {
     }
 
     await prisma.notification.delete({
-      where: { id: req.params.id }
+      where: { id: req.params.id as string }
     });
 
     res.json({ message: "Notification deleted" });

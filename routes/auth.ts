@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post('/login', async (req, res) => {
   try {
-    
+
     const { email, password } = req.body;
     console.log("👉 Login Attempt Received:", email, password);
 

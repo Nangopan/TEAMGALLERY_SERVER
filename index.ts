@@ -14,7 +14,7 @@ const app = express();
 
 // CRITICAL: Allow your Next.js frontend to talk to this backend
 app.use(cors({
-  origin: 'http://localhost:3000', 
+  origin: 'http://localhost:3000',
   credentials: true
 }));
 

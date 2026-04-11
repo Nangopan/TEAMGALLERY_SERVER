@@ -119,16 +119,17 @@ router.post('/', verifyToken, async (req: AuthRequest, res) => {
 // 4. DELETE: Remove Organization (And cascade delete its users/images)
 router.delete('/:id', verifyToken, async (req: AuthRequest, res) => {
   try {
+    const orgId=req.params.id as string
     if (req.user.role !== 'product_owner') return res.status(403).json({ error: "Unauthorized" });
     
     // Note: In a production app, you would delete the S3 images here first.
     // For MVP, we will just wipe the database records.
     await prisma.$transaction([
-      prisma.notification.deleteMany({ where: { organization_id: req.params.id } }),
-      prisma.payment.deleteMany({ where: { organization_id: req.params.id } }),
-      prisma.image.deleteMany({ where: { organization_id: req.params.id } }),
-      prisma.user.deleteMany({ where: { organization_id: req.params.id } }),
-      prisma.organisation.delete({ where: { id: req.params.id } }),
+      prisma.notification.deleteMany({ where: { organization_id: orgId } }),
+      prisma.payment.deleteMany({ where: { organization_id: orgId } }),
+      prisma.image.deleteMany({ where: { organization_id: orgId } }),
+      prisma.user.deleteMany({ where: { organization_id: orgId } }),
+      prisma.organisation.delete({ where: { id: orgId } }),
     ]);
 
     res.json({ message: "Organization deleted successfully" });
@@ -143,7 +144,7 @@ router.get('/:id', verifyToken, async (req: AuthRequest, res) => {
     if (req.user.role !== 'product_owner') return res.status(403).json({ error: "Unauthorized" });
     
     const org = await prisma.organisation.findUnique({ 
-      where: { id: req.params.id } 
+      where: { id: req.params.id as string} 
     });
     
     if (!org) return res.status(404).json({ error: "Organization not found" });
@@ -159,7 +160,7 @@ router.put('/:id', verifyToken, async (req: AuthRequest, res) => {
   try {
     if (req.user.role !== 'product_owner') return res.status(403).json({ error: "Unauthorized" });
 
-    const { id } = req.params;
+    const  id  = req.params.id as string;
     const { name, address, phone, logo_url } = req.body;
 
     // 🟢 1. Check if the NEW name is taken by ANOTHER organization
